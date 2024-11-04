@@ -76,7 +76,7 @@ public class TranslationRegistry extends TranslatableComponentRenderer<Locale> {
 
     @Override
     protected @NotNull Component renderTranslatable(final @NotNull TranslatableComponent component, final @NotNull Locale context) {
-        var format = translate(component.key(), context);
+        MessageFormat format = translate(component.key(), context);
         if (format == null) {
             TranslatableComponent.Builder builder = Component.translatable()
                     .key(component.key()).fallback(component.fallback());
@@ -110,7 +110,7 @@ public class TranslationRegistry extends TranslatableComponentRenderer<Locale> {
 
         while (it.getIndex() < it.getEndIndex()) {
             int end = it.getRunLimit();
-            var index = (Integer) it.getAttribute(MessageFormat.Field.ARGUMENT);
+            Integer index = (Integer) it.getAttribute(MessageFormat.Field.ARGUMENT);
             if (index != null) {
                 TranslationArgument arg = args.get(index);
                 if (arg.value() instanceof Component) {
@@ -129,7 +129,7 @@ public class TranslationRegistry extends TranslatableComponentRenderer<Locale> {
 
     public void reload() {
         ref.updateAndGet(old -> {
-            var reg = new KyoriTranslationRegistry(Key.key("crazydev22", "translations"));
+            KyoriTranslationRegistry reg = new KyoriTranslationRegistry(Key.key("crazydev22", "translations"));
             reg.defaultLocale(defaultLocale);
             return loader.test(reg) ? reg : old;
         });
@@ -137,7 +137,7 @@ public class TranslationRegistry extends TranslatableComponentRenderer<Locale> {
 
     public static Predicate<KyoriTranslationRegistry> fileLoader(File folder) {
         return registry -> {
-            var files = folder.listFiles(file -> file.getName().endsWith(".properties"));
+            File[] files = folder.listFiles(file -> file.getName().endsWith(".properties"));
             if (files == null) {
                 log.warning("Failed to find translation files in " + folder);
                 return false;
@@ -151,7 +151,7 @@ public class TranslationRegistry extends TranslatableComponentRenderer<Locale> {
                 for (File file : files) {
                     String tag = file.getName();
                     tag = tag.substring(0, tag.length() - ".properties".length());
-                    var locale = Translator.parseLocale(tag);
+                    Locale locale = Translator.parseLocale(tag);
                     if (locale == null) {
                         log.warning("Failed to parse locale from " + tag);
                         continue;
