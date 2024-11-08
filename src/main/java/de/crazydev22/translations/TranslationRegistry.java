@@ -16,24 +16,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package de.crazydev22.translations;
 
+import lombok.NonNull;
 import lombok.extern.java.Log;
-import net.kyori.adventure.key.Key;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.TranslatableComponent;
-import net.kyori.adventure.text.TranslationArgument;
+import net.kyori.adventure.text.*;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.renderer.TranslatableComponentRenderer;
 import net.kyori.adventure.translation.Translator;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.text.AttributedCharacterIterator;
-import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.logging.Level;
@@ -43,40 +34,40 @@ public class TranslationRegistry extends TranslatableComponentRenderer<Locale> {
     private final AtomicReference<KyoriTranslationRegistry> ref = new AtomicReference<>();
     private final Predicate<KyoriTranslationRegistry> loader;
     private final MiniMessage miniMessage;
-    private transient Locale defaultLocale;
 
-    public TranslationRegistry(MiniMessage miniMessage, Locale defaultLocale, Predicate<KyoriTranslationRegistry> loader) {
+    public TranslationRegistry(@NonNull MiniMessage miniMessage, @NonNull Locale defaultLocale, @NonNull Predicate<@NotNull KyoriTranslationRegistry> loader) {
         this.miniMessage = miniMessage;
-        this.defaultLocale = defaultLocale;
         this.loader = loader;
+        var reg = new KyoriTranslationRegistry();
+        reg.defaultLocale(defaultLocale);
+        ref.set(reg);
         reload();
     }
 
-    public TranslationRegistry(File folder, MiniMessage miniMessage, Locale defaultLocale) {
+    public TranslationRegistry(@NonNull File folder, @NonNull MiniMessage miniMessage, @NonNull Locale defaultLocale) {
         this(miniMessage, defaultLocale, fileLoader(folder));
     }
 
-    public void defaultLocale(@NotNull Locale locale) {
-        this.defaultLocale = locale;
+    public void defaultLocale(@NonNull Locale locale) {
         ref.get().defaultLocale(locale);
     }
 
-    public boolean contains(@NotNull String key) {
+    @NotNull
+    public Locale defaultLocale() {
+        return ref.get().defaultLocale();
+    }
+
+    public boolean contains(@NonNull String key) {
         return ref.get().contains(key);
     }
 
-    public boolean contains(@NotNull String key, @NotNull Locale locale) {
+    public boolean contains(@NonNull String key, @NonNull Locale locale) {
         return ref.get().translate(key, locale) != null;
     }
 
     @Override
-    protected @Nullable MessageFormat translate(final @NotNull String key, final @NotNull Locale context) {
-        return ref.get().translate(key, context);
-    }
-
-    @Override
-    protected @NotNull Component renderTranslatable(final @NotNull TranslatableComponent component, final @NotNull Locale context) {
-        MessageFormat format = translate(component.key(), context);
+    protected @NotNull Component renderTranslatable(@NotNull TranslatableComponent component, @NotNull Locale context) {
+        Format format = ref.get().translate(component.key(), context);
         if (format == null) {
             TranslatableComponent.Builder builder = Component.translatable()
                     .key(component.key()).fallback(component.fallback());
@@ -93,49 +84,31 @@ public class TranslationRegistry extends TranslatableComponentRenderer<Locale> {
             return mergeStyleAndOptionallyDeepRender(component, builder, context);
         }
 
-        List<TranslationArgument> args = component.arguments();
-
         TextComponent.Builder builder = Component.text();
         this.mergeStyle(component, builder, context);
+        String[] args = component.arguments()
+                .stream()
+                .map(TranslationArgumentLike::asComponent)
+                .map(Component::compact)
+                .map(miniMessage::serialize)
+                .toArray(String[]::new);
 
-        // no arguments makes this render very simple
-        if (args.isEmpty()) {
-            builder.append(render(miniMessage.deserialize(format.format(null, new StringBuffer(), null).toString()), context));
-            return optionallyRenderChildrenAppendAndBuild(component.children(), builder, context);
-        }
-
-        Object[] nulls = new Object[args.size()];
-        StringBuffer sb = format.format(nulls, new StringBuffer(), null);
-        AttributedCharacterIterator it = format.formatToCharacterIterator(nulls);
-
-        while (it.getIndex() < it.getEndIndex()) {
-            int end = it.getRunLimit();
-            Integer index = (Integer) it.getAttribute(MessageFormat.Field.ARGUMENT);
-            if (index != null) {
-                TranslationArgument arg = args.get(index);
-                if (arg.value() instanceof Component) {
-                    builder.append(render(arg.asComponent(), context));
-                } else {
-                    builder.append(arg.asComponent()); // todo: number rendering?
-                }
-            } else {
-                builder.append(render(miniMessage.deserialize(sb.substring(it.getIndex(), end)), context));
-            }
-            it.setIndex(end);
-        }
+        Component translated = miniMessage.deserialize(format.format(args));
+        builder.append(render(translated, context));
 
         return optionallyRenderChildrenAppendAndBuild(component.children(), builder, context);
     }
 
     public void reload() {
         ref.updateAndGet(old -> {
-            KyoriTranslationRegistry reg = new KyoriTranslationRegistry(Key.key("crazydev22", "translations"));
-            reg.defaultLocale(defaultLocale);
+            KyoriTranslationRegistry reg = new KyoriTranslationRegistry();
+            reg.defaultLocale(old.defaultLocale());
             return loader.test(reg) ? reg : old;
         });
     }
 
-    public static Predicate<KyoriTranslationRegistry> fileLoader(File folder) {
+    @NotNull
+    public static Predicate<@NotNull KyoriTranslationRegistry> fileLoader(@NonNull File folder) {
         return registry -> {
             File[] files = folder.listFiles(file -> file.getName().endsWith(".properties"));
             if (files == null) {
