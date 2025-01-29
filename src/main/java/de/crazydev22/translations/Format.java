@@ -73,6 +73,7 @@ public class Format {
                         builder.append(escape);
                         offset++;
                     }
+                    valueStart = -1;
                 }
                 case ':' -> {
                     if (valueStart != -1 && pattern.charAt(i-1) != escape) {
