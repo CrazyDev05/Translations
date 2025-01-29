@@ -18,7 +18,7 @@ class FormattingTest {
     void test() {
         var mini = MiniMessage.miniMessage();
         var registry = new TranslationRegistry(mini, Locale.ROOT, r -> {
-            r.register("test", Locale.ROOT, new Format("<green>Test {1} <lang:test2:{2}> {0}"));
+            r.register("test", Locale.ROOT, new Format("<green>Test {1} <lang:test2:{2}> <red>{0}"));
             r.register("test2", Locale.ROOT, new Format("\n<yellow>Hi {0}"));
             return true;
         });
@@ -34,6 +34,6 @@ class FormattingTest {
 
         var colored = registry.render(msg, Locale.ROOT);
         var serialized = mini.serialize(colored);
-        assertEquals("<red><green>Test 2 \n<yellow>Hi <underlined>3</underlined></yellow> 1", serialized);
+        assertEquals("<red><green>Test 2 \n<yellow>Hi <underlined>3</underlined></yellow> <red>1", serialized);
     }
 }
